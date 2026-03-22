@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>SILVerify</title>
+<script>
+  // Redirect all non-marketing paths to the app subdomain
+  // silverify.co.uk/auth → app.silverify.co.uk/auth
+  // silverify.co.uk/project/xxx → app.silverify.co.uk/project/xxx
+  var path = window.location.pathname;
+  var search = window.location.search;
+  var hash = window.location.hash;
+  window.location.replace('https://app.silverify.co.uk' + path + search + hash);
+</script>
+<noscript>
+  <meta http-equiv="refresh" content="0; url=https://app.silverify.co.uk">
+</noscript>
+</head>
+<body>
+  <p>Redirecting to SILVerify app...</p>
+</body>
+</html>
