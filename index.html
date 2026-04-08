@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SILVerify — IEC 61508 / 61511 SIL Verification Tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;0,700;0,900;1,600&family=Barlow+Condensed:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+
+/* ─────────────────────────────────────────────
+   DESIGN LANGUAGE: Precision instrument /
+   industrial calibration. The aesthetic of
+   oscilloscopes, relay logic diagrams, and
+   DCS mimic panels. Grid-based, monochrome
+   foundation with one sharp signal colour.
+───────────────────────────────────────────── */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+:root {
+  --bg:        #09090b;
+  --bg2:       #0f1014;
+  --bg3:       #141519;
+  --bg4:       #1a1c22;
+  --rule:      rgba(255,255,255,0.06);
+  --rule2:     rgba(255,255,255,0.10);
+  --rule3:     rgba(255,255,255,0.16);
+  --t1:        #f4f3ef;
+  --t2:        #9b9ea8;
+  --t3:        #5c5f6b;
+  --t4:        #3a3d47;
+  --sig:       #00e5a0;
+  --sig-dim:   rgba(0,229,160,0.10);
+  --sig-glow:  rgba(0,229,160,0.25);
+  --pass:      #00e5a0;
+  --warn:      #f5a623;
+  --fail:      #e05252;
+  --warn-dim:  rgba(245,166,35,0.12);
+  --fail-dim:  rgba(224,82,82,0.10);
+  --mono:      'IBM Plex Mono', monospace;
+  --sans:      'Barlow', sans-serif;
+  --cond:      'Barlow Condensed', sans-serif;
+}
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--t2);
+  font-size: 16px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--rule) 1px, transparent 1px),
+    linear-gradient(90deg, var(--rule) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+.fade-up { opacity: 0; animation: fadeUp 0.6s ease forwards; }
+.d1 { animation-delay: 0.05s; }
+.d2 { animation-delay: 0.15s; }
+.d3 { animation-delay: 0.25s; }
+.d4 { animation-delay: 0.35s; }
+.d5 { animation-delay: 0.45s; }
+
+.wrap {
+  max-width: 1020px;
+  margin: 0 auto;
+  padding: 0 40px;
+  position: relative;
+  z-index: 2;
+}
+
+/* ── NAV ──────────────────────────────────────── */
+nav {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(9,9,11,0.94);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--rule2);
+}
+.nav-inner {
+  max-width: 1020px; margin: 0 auto; padding: 0 40px;
+  height: 52px; display: flex; align-items: center; justify-content: space-between;
+}
+.nav-logo {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--mono); font-size: 14px; font-weight: 600;
+  color: var(--t1); text-decoration: none; letter-spacing: 0.04em;
+}
+.logo-pip {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--sig);
+  box-shadow: 0 0 6px var(--sig), 0 0 14px var(--sig-glow);
+  animation: blink 2.4s ease-in-out infinite;
+}
+.nav-links { display: flex; gap: 32px; list-style: none; }
+.nav-links a {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--t3); text-decoration: none;
+  transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--t1); }
+.nav-btn {
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--bg); background: var(--sig);
+  padding: 9px 20px; border-radius: 2px; text-decoration: none;
+  transition: box-shadow 0.2s, transform 0.15s;
+}
+.nav-btn:hover { box-shadow: 0 0 20px var(--sig-glow); transform: translateY(-1px); }
+
+/* ── HERO ─────────────────────────────────────── */
+.hero {
+  padding: 96px 0 72px;
+  position: relative; z-index: 2;
+  border-bottom: 1px solid var(--rule);
+}
+.hero::before, .hero::after {
+  content: '';
+  position: absolute;
+  width: 24px; height: 24px;
+  border-color: var(--sig); border-style: solid; opacity: 0.4;
+}
+.hero::before { top: 32px; left: 40px; border-width: 1px 0 0 1px; }
+.hero::after  { top: 32px; right: 40px; border-width: 1px 1px 0 0; }
+
+.hero-eyebrow {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--sig); margin-bottom: 24px;
+  display: flex; align-items: center; gap: 12px;
+}
+.hero-eyebrow::before {
+  content: ''; display: block; width: 32px; height: 1px; background: var(--sig);
+}
+.hero h1 {
+  font-family: var(--cond);
+  font-size: clamp(48px, 7vw, 88px);
+  font-weight: 800; line-height: 0.92;
+  letter-spacing: -0.02em; color: var(--t1);
+  margin-bottom: 32px; text-transform: uppercase;
+}
+.hero h1 .line2 { color: var(--sig); display: block; }
+.hero h1 .line3 {
+  color: var(--t3); display: block; font-weight: 500;
+  font-size: 0.55em; letter-spacing: 0.04em; text-transform: none;
+  font-family: var(--mono); margin-top: 18px; line-height: 1.4;
+}
+
+.hero-sub {
+  font-size: 17px; color: var(--t2); max-width: 580px;
+  line-height: 1.7; margin-bottom: 16px; font-weight: 300;
+}
+
+.validation-bar {
+  font-family: var(--mono); font-size: 12px; color: var(--sig);
+  border-left: 2px solid var(--sig); padding-left: 14px;
+  margin-bottom: 32px; opacity: 0.75; line-height: 1.5;
+}
+
+.hero-actions {
+  display: flex; gap: 14px; align-items: center;
+  flex-wrap: wrap; margin-bottom: 12px;
+}
+.btn-primary {
+  font-family: var(--mono); font-size: 12px; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--bg); background: var(--sig);
+  padding: 15px 28px; border-radius: 2px; text-decoration: none;
+  transition: box-shadow 0.2s, transform 0.15s; display: inline-block;
+}
+.btn-primary:hover { box-shadow: 0 0 32px var(--sig-glow); transform: translateY(-1px); }
+.btn-ghost {
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--t2); border: 1px solid var(--rule2);
+  padding: 15px 28px; border-radius: 2px; text-decoration: none;
+  transition: border-color 0.2s, color 0.2s; display: inline-block;
+}
+.btn-ghost:hover { border-color: var(--t2); color: var(--t1); }
+
+.hero-note {
+  font-family: var(--mono); font-size: 10px; color: var(--t4);
+  letter-spacing: 0.06em; margin-bottom: 40px;
+}
+
+.hero-credibility {
+  display: flex; align-items: center; gap: 16px;
+  flex-wrap: wrap; margin-bottom: 40px;
+}
+.cred-item {
+  font-family: var(--sans); font-size: 13px; font-weight: 300; color: var(--t2);
+}
+.cred-item::first-letter { color: var(--sig); }
+.cred-divider { width: 1px; height: 12px; background: var(--rule3); flex-shrink: 0; }
+
+.metrics {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  border: 1px solid var(--rule2); border-radius: 3px; overflow: hidden;
+}
+.metric {
+  padding: 22px 24px; border-right: 1px solid var(--rule2);
+}
+.metric:last-child { border-right: none; }
+.metric-val {
+  font-family: var(--cond); font-size: 38px; font-weight: 800;
+  color: var(--sig); line-height: 1; letter-spacing: -0.02em; margin-bottom: 4px;
+}
+.metric-label {
+  font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--t3);
+}
+
+/* ── SECTION CHROME ───────────────────────────── */
+section {
+  padding: 88px 0; border-bottom: 1px solid var(--rule);
+  position: relative; z-index: 2;
+}
+.section-label {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--sig); margin-bottom: 20px;
+  display: flex; align-items: center; gap: 10px;
+}
+.section-label::after {
+  content: ''; flex: 1; max-width: 40px; height: 1px;
+  background: var(--sig); opacity: 0.5;
+}
+h2 {
+  font-family: var(--cond); font-size: clamp(30px, 4vw, 48px);
+  font-weight: 800; text-transform: uppercase; letter-spacing: -0.01em;
+  color: var(--t1); line-height: 1.05; margin-bottom: 16px;
+}
+h2 em {
+  font-style: italic; color: var(--t3); font-weight: 500;
+  text-transform: none; font-size: 0.8em; display: block;
+  font-family: var(--sans); letter-spacing: 0; margin-top: 4px;
+}
+.section-lead {
+  font-size: 16px; color: var(--t2); max-width: 600px;
+  line-height: 1.75; margin-bottom: 48px; font-weight: 300;
+}
+
+/* ── PROBLEM SECTION ──────────────────────────── */
+.problem-section {
+  background: var(--bg2); border: 1px solid var(--rule2);
+  border-radius: 3px; padding: 44px 40px; margin-bottom: 0;
+}
+.problem-pains { display: flex; flex-direction: column; gap: 0; margin-bottom: 32px; }
+.pain-item {
+  display: flex; gap: 16px; padding: 18px 0;
+  border-bottom: 1px solid var(--rule); align-items: flex-start;
+}
+.pain-item:first-child { border-top: 1px solid var(--rule); }
+.pain-icon {
+  font-family: var(--mono); font-size: 13px; color: var(--fail);
+  flex-shrink: 0; margin-top: 2px; width: 20px;
+}
+.pain-text { font-size: 15px; color: var(--t1); line-height: 1.55; font-weight: 400; }
+.pain-sub {
+  font-size: 13px; color: var(--t3); font-weight: 300; margin-top: 4px; line-height: 1.5;
+}
+.problem-turn {
+  background: var(--bg3); border-left: 3px solid var(--sig);
+  padding: 20px 24px; border-radius: 0 3px 3px 0;
+}
+.problem-turn p { font-size: 15px; color: var(--t2); line-height: 1.7; font-weight: 300; }
+.problem-turn strong { color: var(--t1); font-weight: 600; }
+
+/* ── TESTIMONIAL ───────────────────────────────── */
+.testimonial-block {
+  background: var(--bg2); border: 1px solid var(--rule2);
+  border-radius: 3px; padding: 40px 44px; position: relative;
+}
+.testimonial-tag {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--sig); margin-bottom: 20px;
+}
+.testimonial-quote-mark {
+  font-family: var(--cond); font-size: 80px; font-weight: 800;
+  color: var(--sig); opacity: 0.3; line-height: 1; margin-bottom: -20px; display: block;
+}
+.testimonial-text {
+  font-family: var(--sans); font-size: 17px; font-weight: 300;
+  font-style: italic; color: var(--t1); line-height: 1.75; margin-bottom: 28px;
+}
+.testimonial-text strong { font-style: normal; color: var(--t1); font-weight: 500; }
+.testimonial-attribution { display: flex; align-items: center; gap: 16px; }
+.testimonial-name {
+  font-family: var(--cond); font-size: 16px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.04em; color: var(--t1);
+}
+.testimonial-role { font-family: var(--mono); font-size: 12px; color: var(--t3); letter-spacing: 0.04em; }
+.testimonial-attribution::before {
+  content: ''; display: block; width: 32px; height: 2px;
+  background: var(--sig); flex-shrink: 0;
+}
+.testimonial-cta { margin-top: 28px; }
+
+/* ── THREE BARRIERS ───────────────────────────── */
+.barriers {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 1px; background: var(--rule2);
+  border: 1px solid var(--rule2); border-radius: 3px;
+  overflow: hidden; margin-bottom: 28px;
+}
+.barrier { background: var(--bg2); padding: 36px 28px; }
+.barrier-top {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;
+}
+.barrier-num { font-family: var(--mono); font-size: 9px; letter-spacing: 0.16em; color: var(--t4); text-transform: uppercase; }
+.barrier-status {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
+  color: var(--sig); border: 1px solid var(--sig-dim); padding: 3px 8px; border-radius: 1px;
+}
+.barrier h3 {
+  font-family: var(--cond); font-size: 18px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.02em; color: var(--t1); margin-bottom: 10px;
+}
+.barrier p { font-size: 14px; color: var(--t2); line-height: 1.65; font-weight: 300; margin-bottom: 20px; }
+.barrier-formula {
+  font-family: var(--mono); font-size: 11px; color: var(--sig);
+  background: var(--sig-dim); border: 1px solid rgba(0,229,160,0.2);
+  border-radius: 2px; padding: 10px 14px; line-height: 1.6; letter-spacing: 0.02em;
+}
+
+/* ── BARRIER ADDITIONAL (§11.9.4) ─────────────── */
+.barrier-additional {
+  grid-column: 1 / -1;
+  background: rgba(0,229,160,0.03);
+  border-top: 1px solid rgba(0,229,160,0.15);
+  padding: 28px 32px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  align-items: start;
+}
+.barrier-additional .barrier-top { margin-bottom: 12px; }
+.barrier-additional h3 { font-family: var(--cond); font-size: 18px; font-weight: 700; text-transform: uppercase; color: var(--t1); margin-bottom: 10px; }
+.barrier-additional p { font-size: 14px; color: var(--t2); line-height: 1.65; font-weight: 300; }
+.only-claim {
+  font-family: var(--mono); font-size: 11px; color: var(--sig);
+  background: var(--sig-dim); border: 1px solid rgba(0,229,160,0.2);
+  border-radius: 2px; padding: 10px 14px; line-height: 1.6;
+  letter-spacing: 0.02em; margin-top: 16px;
+}
+
+/* ── RESULTS TABLE ────────────────────────────── */
+.results-panel {
+  background: var(--bg2); border: 1px solid var(--rule2);
+  border-radius: 3px; overflow: hidden; margin-bottom: 12px; font-family: var(--mono);
+}
+.panel-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 20px; background: var(--bg3); border-bottom: 1px solid var(--rule2);
+}
+.panel-title { font-size: 10px; letter-spacing: 0.12em; color: var(--t3); text-transform: uppercase; }
+.panel-badge {
+  font-size: 9px; letter-spacing: 0.12em; padding: 4px 10px;
+  border-radius: 1px; text-transform: uppercase;
+}
+.badge-pass { background: var(--sig-dim); color: var(--sig); border: 1px solid rgba(0,229,160,0.25); }
+.badge-warn { background: var(--warn-dim); color: var(--warn); border: 1px solid rgba(245,166,35,0.25); }
+
+.rt { width: 100%; border-collapse: collapse; }
+.rt th {
+  font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--t4); padding: 10px 20px; text-align: left;
+  border-bottom: 1px solid var(--rule2); font-weight: 400;
+}
+.rt td {
+  font-size: 12px; color: var(--t2); padding: 11px 20px;
+  border-bottom: 1px solid var(--rule); vertical-align: middle;
+}
+.rt tr:last-child td { border-bottom: none; }
+.rt tr.result-row td {
+  background: rgba(0,229,160,0.04);
+  border-top: 1px solid rgba(0,229,160,0.2);
+  border-bottom: none; font-weight: 600; color: var(--t1);
+}
+.rt tr:hover td { background: rgba(255,255,255,0.02); }
+.pass-val { color: var(--pass) !important; font-weight: 600; }
+.warn-val { color: var(--warn) !important; }
+.fail-val { color: var(--fail) !important; }
+.hi-val   { color: var(--t1) !important; }
+
+.contrib-bar { display: flex; align-items: center; gap: 8px; }
+.bar-track { width: 80px; height: 4px; background: var(--bg4); border-radius: 2px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 2px; }
+.bar-fill.low  { background: var(--sig); }
+.bar-fill.high { background: var(--fail); }
+
+/* uncertainty panel */
+.uncertainty-panel {
+  background: rgba(245,166,35,0.04); border: 1px solid rgba(245,166,35,0.2);
+  border-radius: 3px; overflow: hidden; margin-bottom: 52px; font-family: var(--mono);
+}
+.uncertainty-panel .panel-bar { background: rgba(245,166,35,0.06); }
+
+/* ── WHY SWITCH ───────────────────────────────── */
+.why-switch {
+  background: var(--bg2); border: 1px solid var(--rule2);
+  border-radius: 3px; padding: 36px; margin-bottom: 52px;
+}
+.why-label {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--sig); margin-bottom: 28px;
+}
+.why-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.why-item { display: flex; gap: 14px; align-items: flex-start; }
+.why-icon { font-family: var(--mono); font-size: 14px; color: var(--sig); flex-shrink: 0; margin-top: 2px; }
+.why-title {
+  font-family: var(--cond); font-size: 15px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.03em; color: var(--t1); margin-bottom: 6px;
+}
+.why-desc { font-size: 14px; color: var(--t2); line-height: 1.65; font-weight: 300; }
+
+/* ── ARCHITECTURES ────────────────────────────── */
+.arch-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  gap: 1px; background: var(--rule2);
+  border: 1px solid var(--rule2); border-radius: 3px;
+  overflow: hidden; margin-bottom: 24px;
+}
+.arch { background: var(--bg2); padding: 28px; }
+.arch-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+.arch-name { font-family: var(--mono); font-size: 22px; font-weight: 600; color: var(--sig); }
+.arch-hft {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
+  padding: 4px 8px; border-radius: 1px; text-transform: uppercase;
+}
+.hft1 { background: var(--sig-dim); color: var(--sig); }
+.hft0 { background: var(--warn-dim); color: var(--warn); }
+.arch h4 {
+  font-family: var(--cond); font-size: 14px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.05em; color: var(--t1); margin-bottom: 8px;
+}
+.arch p { font-size: 14px; color: var(--t2); line-height: 1.6; font-weight: 300; }
+.arch-note {
+  margin-top: 12px; font-family: var(--mono); font-size: 10px; color: var(--warn);
+  background: var(--warn-dim); border: 1px solid rgba(245,166,35,0.2);
+  border-radius: 2px; padding: 6px 10px; letter-spacing: 0.03em;
+}
+
+/* ── REPORT ───────────────────────────────────── */
+.report-mockup {
+  background: var(--bg2); border: 1px solid var(--rule2);
+  border-radius: 3px; overflow: hidden; margin-bottom: 32px;
+}
+.report-toolbar {
+  background: var(--bg3); padding: 10px 16px;
+  display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--rule2);
+}
+.report-dots { display: flex; gap: 5px; }
+.rdot { width: 9px; height: 9px; border-radius: 50%; }
+.rdot-r { background: #ff5f57; }
+.rdot-y { background: #febc2e; }
+.rdot-g { background: #28c840; }
+.report-filename { font-family: var(--mono); font-size: 10px; color: var(--t3); letter-spacing: 0.06em; }
+.report-content { padding: 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.toc-list { list-style: none; }
+.toc-item {
+  display: flex; gap: 12px; padding: 8px 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 13px; font-family: var(--sans); font-weight: 300; align-items: flex-start;
+}
+.toc-item:last-child { border-bottom: none; }
+.toc-num { color: var(--sig); min-width: 28px; font-size: 11px; font-family: var(--mono); }
+.toc-num.highlight { color: var(--warn); }
+.toc-text { color: var(--t2); line-height: 1.4; }
+.toc-text strong { color: var(--t1); font-weight: 500; }
+.report-snapshot {
+  background: var(--bg3); border: 1px solid var(--rule2);
+  border-radius: 2px; padding: 20px;
+}
+.snapshot-title {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--t4); margin-bottom: 16px;
+}
+.snapshot-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 7px 0; border-bottom: 1px solid var(--rule);
+  font-family: var(--mono); font-size: 12px;
+}
+.snapshot-row:last-child { border-bottom: none; }
+.snap-key { color: var(--t3); }
+.snap-val { color: var(--t1); }
+.report-note {
+  grid-column: 1 / -1; font-family: var(--sans); font-size: 13px; font-weight: 300;
+  color: var(--t3); line-height: 1.65; padding-top: 16px;
+  border-top: 1px solid var(--rule2);
+}
+
+/* ── SCOPE ────────────────────────────────────── */
+.scope-cols {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+  background: var(--rule2); border: 1px solid var(--rule2);
+  border-radius: 3px; overflow: hidden; margin-bottom: 52px;
+}
+.scope-col { background: var(--bg2); }
+.scope-head {
+  padding: 12px 24px; font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.14em; text-transform: uppercase; border-bottom: 1px solid var(--rule2);
+}
+.scope-head.in  { color: var(--sig); background: var(--sig-dim); }
+.scope-head.out { color: var(--fail); background: var(--fail-dim); }
+.scope-items { padding: 8px 0; }
+.scope-item {
+  display: flex; gap: 12px; padding: 8px 24px;
+  border-bottom: 1px solid var(--rule);
+  font-size: 14px; line-height: 1.55; align-items: flex-start;
+}
+.scope-item:last-child { border-bottom: none; }
+.scope-item::before { font-family: var(--mono); font-size: 10px; flex-shrink: 0; margin-top: 3px; }
+.scope-col.in  .scope-item::before { content: '✓'; color: var(--sig); }
+.scope-col.out .scope-item::before { content: '✕'; color: var(--fail); }
+
+/* ── PROFILES ─────────────────────────────────── */
+.profiles {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+  background: var(--rule2); border: 1px solid var(--rule2);
+  border-radius: 3px; overflow: hidden; margin-bottom: 52px;
+}
+.profile-card { background: var(--bg2); padding: 32px 24px; }
+.profile-id {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--t4); margin-bottom: 16px;
+}
+.profile-card h3 {
+  font-family: var(--cond); font-size: 18px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.03em; color: var(--t1); margin-bottom: 10px;
+}
+.profile-card p { font-size: 14px; color: var(--t2); line-height: 1.65; font-weight: 300; }
+
+/* ── FOUNDER ──────────────────────────────────── */
+.founder-block {
+  background: var(--bg2); border: 1px solid var(--rule2);
+  border-radius: 3px; padding: 44px 40px;
+  display: grid; grid-template-columns: 1fr auto;
+  gap: 48px; align-items: center; margin-bottom: 52px;
+}
+.founder-quote {
+  font-family: var(--sans); font-size: 20px; font-weight: 300;
+  font-style: italic; color: var(--t2); line-height: 1.6;
+  margin-bottom: 28px; border-left: 2px solid var(--sig); padding-left: 20px;
+}
+.founder-creds { display: flex; flex-direction: column; gap: 6px; }
+.cred-line {
+  font-family: var(--sans); font-size: 13px; color: var(--t3); font-weight: 300;
+  display: flex; gap: 8px; align-items: center;
+}
+.cred-line::before { content: '·'; color: var(--sig); font-size: 18px; line-height: 0; margin-top: 2px; }
+.founder-badges { display: flex; flex-direction: column; gap: 8px; }
+.f-badge {
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 8px 16px; border-radius: 2px; white-space: nowrap; text-align: center;
+}
+.f-badge.g { background: var(--sig-dim); color: var(--sig); border: 1px solid rgba(0,229,160,0.2); }
+.f-badge.a { background: var(--warn-dim); color: var(--warn); border: 1px solid rgba(245,166,35,0.2); }
+
+/* ── PRICING ──────────────────────────────────── */
+.monthly-compare {
+  display: grid; grid-template-columns: 1fr auto 1fr;
+  overflow: hidden; border: 1px solid var(--rule2);
+  border-radius: 3px; margin-bottom: 28px;
+}
+.mc-panel { padding: 28px 32px; }
+.mc-panel.mc-silverify { background: var(--sig-dim); }
+.mc-panel.mc-traditional { background: var(--bg3); opacity: 0.85; }
+.mc-vs-badge {
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 20px; background: var(--bg4);
+  border-left: 1px solid var(--rule2); border-right: 1px solid var(--rule2);
+}
+.mc-vs-text {
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--t4);
+  writing-mode: vertical-rl;
+}
+.mc-tag { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 12px; }
+.mc-panel.mc-silverify .mc-tag { color: var(--sig); }
+.mc-panel.mc-traditional .mc-tag { color: var(--t4); }
+.mc-price {
+  font-family: var(--cond); font-size: 52px; font-weight: 800;
+  line-height: 1; letter-spacing: -0.03em; margin-bottom: 6px;
+}
+.mc-panel.mc-silverify .mc-price { color: var(--sig); }
+.mc-panel.mc-traditional .mc-price { color: var(--t3); text-decoration: line-through; font-size: 44px; }
+.mc-period { font-family: var(--cond); font-size: 20px; font-weight: 500; }
+.mc-note { font-family: var(--sans); font-size: 13px; font-weight: 300; line-height: 1.55; margin-bottom: 16px; }
+.mc-panel.mc-silverify .mc-note { color: var(--sig); opacity: 0.8; }
+.mc-panel.mc-traditional .mc-note { color: var(--t3); }
+.mc-bullets { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.mc-bullets li { font-family: var(--sans); font-size: 13px; font-weight: 300; display: flex; gap: 8px; align-items: flex-start; line-height: 1.4; }
+.mc-panel.mc-silverify .mc-bullets li { color: var(--t1); }
+.mc-panel.mc-traditional .mc-bullets li { color: var(--t3); }
+.mc-bullets li::before { font-family: var(--mono); font-size: 11px; flex-shrink: 0; margin-top: 2px; }
+.mc-panel.mc-silverify .mc-bullets li::before { content: "✓"; color: var(--sig); }
+.mc-panel.mc-traditional .mc-bullets li::before { content: "✕"; color: var(--fail); opacity: 0.5; }
+
+.pricing-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 28px; }
+.price-card {
+  background: var(--bg2); border: 1px solid var(--rule2);
+  border-radius: 3px; padding: 36px 32px; position: relative;
+}
+.price-card.featured { border-color: var(--sig); box-shadow: 0 0 40px rgba(0,229,160,0.06); }
+.price-featured-label {
+  position: absolute; top: -11px; left: 20px;
+  font-family: var(--mono); font-size: 9px; font-weight: 600;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  background: var(--sig); color: var(--bg); padding: 3px 10px; border-radius: 1px;
+}
+.price-tier { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--t3); margin-bottom: 16px; }
+.price-main { margin-bottom: 4px; }
+.price-num { font-family: var(--cond); font-size: 60px; font-weight: 800; color: var(--t1); line-height: 1; letter-spacing: -0.03em; }
+.price-currency { font-family: var(--cond); font-size: 28px; font-weight: 600; color: var(--t3); vertical-align: top; margin-top: 10px; display: inline-block; }
+.price-period { font-family: var(--mono); font-size: 12px; color: var(--t3); margin-bottom: 6px; letter-spacing: 0.02em; }
+.price-annual { font-family: var(--sans); font-size: 13px; color: var(--sig); margin-bottom: 8px; font-weight: 400; }
+.price-day { font-family: var(--mono); font-size: 11px; color: var(--t4); margin-bottom: 24px; letter-spacing: 0.04em; }
+.price-features {
+  list-style: none; margin-bottom: 28px;
+  border-top: 1px solid var(--rule2); padding-top: 20px;
+}
+.price-features li {
+  display: flex; gap: 10px; font-size: 14px; color: var(--t2);
+  padding: 7px 0; border-bottom: 1px solid var(--rule);
+  align-items: flex-start; line-height: 1.55;
+}
+.price-features li:last-child { border-bottom: none; }
+.price-features li::before { content: '→'; font-family: var(--mono); font-size: 10px; color: var(--sig); flex-shrink: 0; margin-top: 3px; }
+.price-features li.highlight { color: var(--t1); }
+.price-features li.highlight::before { color: var(--warn); }
+.price-btn {
+  display: block; text-align: center; font-family: var(--mono);
+  font-size: 11px; font-weight: 600; letter-spacing: 0.12em;
+  text-transform: uppercase; padding: 14px; border-radius: 2px;
+  text-decoration: none; transition: all 0.2s;
+}
+.price-btn.primary { background: var(--sig); color: var(--bg); }
+.price-btn.primary:hover { box-shadow: 0 0 24px var(--sig-glow); }
+.price-btn.outline { border: 1px solid var(--rule2); color: var(--t2); }
+.price-btn.outline:hover { border-color: var(--t2); color: var(--t1); }
+
+/* ── GUARANTEE ─────────────────────────────────── */
+.guarantee-block {
+  background: var(--bg2); border: 1px solid var(--rule2);
+  border-radius: 3px; padding: 32px;
+  display: grid; grid-template-columns: auto 1fr;
+  gap: 24px; align-items: start; margin-top: 28px;
+}
+.guarantee-icon { font-size: 36px; line-height: 1; }
+.guarantee-title {
+  font-family: var(--cond); font-size: 20px; font-weight: 700;
+  text-transform: uppercase; color: var(--t1); letter-spacing: 0.02em; margin-bottom: 8px;
+}
+.guarantee-body { font-size: 14px; color: var(--t2); line-height: 1.7; font-weight: 300; }
+
+.urgency-note {
+  background: var(--sig-dim); border: 1px solid rgba(0,229,160,0.2);
+  border-radius: 2px; padding: 14px 20px; font-family: var(--sans);
+  font-size: 14px; font-weight: 300; color: var(--sig); margin-top: 16px; line-height: 1.65;
+}
+
+/* ── FAQ ──────────────────────────────────────── */
+.faq-list { margin-bottom: 52px; }
+.faq { border-bottom: 1px solid var(--rule2); padding: 22px 0; }
+.faq:first-child { border-top: 1px solid var(--rule2); }
+.faq-q {
+  font-family: var(--cond); font-size: 17px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.03em; color: var(--t1); margin-bottom: 8px;
+}
+.faq-a { font-size: 14px; color: var(--t2); line-height: 1.75; font-weight: 300; max-width: 680px; }
+.faq-a a { color: var(--sig); }
+
+/* ── CTA ──────────────────────────────────────── */
+.cta-strip { padding: 88px 0; text-align: center; position: relative; z-index: 2; }
+.cta-strip h2 { font-size: clamp(36px, 5vw, 64px); margin-bottom: 16px; }
+.cta-strip p { font-size: 16px; color: var(--t2); margin-bottom: 12px; font-weight: 300; max-width: 480px; margin-left: auto; margin-right: auto; }
+.cta-sub { font-family: var(--mono); font-size: 11px; color: var(--t4); margin-bottom: 36px; letter-spacing: 0.04em; }
+.cta-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-bottom: 16px; }
+.cta-note { font-family: var(--mono); font-size: 10px; color: var(--t4); letter-spacing: 0.06em; margin-bottom: 32px; }
+.cta-bullets { display: flex; justify-content: center; gap: 28px; flex-wrap: wrap; }
+.cta-bullet { font-size: 13px; color: var(--t3); display: flex; align-items: center; gap: 8px; font-weight: 300; }
+.cta-bullet::before { content: '✔'; color: var(--sig); font-family: var(--mono); font-size: 11px; }
+
+/* ── FOOTER ───────────────────────────────────── */
+footer {
+  border-top: 1px solid var(--rule2); padding: 28px 40px; text-align: center;
+  font-family: var(--mono); font-size: 10px; color: var(--t4);
+  letter-spacing: 0.1em; text-transform: uppercase; position: relative; z-index: 2;
+}
+footer a { color: var(--t3); text-decoration: none; }
+footer a:hover { color: var(--sig); }
+
+/* ── RESPONSIVE ───────────────────────────────── */
+@media (max-width: 768px) {
+  .wrap { padding: 0 24px; }
+  .nav-inner { padding: 0 24px; }
+  .nav-links { display: none; }
+  .hero { padding: 72px 0 56px; }
+  .hero::before { left: 24px; }
+  .hero::after  { right: 24px; }
+  .barriers { grid-template-columns: 1fr; }
+  .barrier-additional { grid-template-columns: 1fr; }
+  .arch-grid { grid-template-columns: 1fr; }
+  .profiles { grid-template-columns: 1fr; }
+  .pricing-wrap { grid-template-columns: 1fr; }
+  .scope-cols { grid-template-columns: 1fr; }
+  .founder-block { grid-template-columns: 1fr; }
+  .report-content { grid-template-columns: 1fr; }
+  .metrics { grid-template-columns: repeat(2, 1fr); }
+  .monthly-compare { grid-template-columns: 1fr; }
+  .mc-vs-badge { padding: 16px; writing-mode: horizontal-tb; border: none; border-top: 1px solid var(--rule2); border-bottom: 1px solid var(--rule2); }
+  .mc-vs-text { writing-mode: horizontal-tb; }
+  .why-grid { grid-template-columns: 1fr; }
+  .guarantee-block { grid-template-columns: 1fr; }
+  footer { padding: 24px; }
+}
+</style>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "62c5957fe43446ccaf53fe060acb35ec"}'></script><!-- End Cloudflare Web Analytics -->
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a href="#hero" class="nav-logo">
+      <div class="logo-pip"></div>SILVerify
+    </a>
+    <ul class="nav-links">
+      <li><a href="#how-it-works">How it works</a></li>
+      <li><a href="#report">Report</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="#faq">FAQ</a></li>
+    </ul>
+    <a href="https://app.silverify.co.uk/auth?utm_source=website&utm_medium=cta&utm_campaign=nav" class="nav-btn">Try it free</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero" id="hero">
+  <div class="wrap">
+    <div class="hero-eyebrow fade-up d1">IEC 61508 &middot; IEC 61511 &middot; Low demand &middot; SIL 1&ndash;3</div>
+    <h1 class="fade-up d2">
+      Your SIS projects.
+      <span class="line2">Documented, traceable.</span>
+      <span class="line3">Ready for the next modification.</span>
+    </h1>
+    <p class="hero-sub fade-up d3">Enter your device data. SILVerify performs complete IEC 61508 / 61511 three-barrier SIL verification and generates a professional, FSA-ready report automatically. One session. No spreadsheets. No manual formatting.</p>
+    <div class="validation-bar fade-up d3">Calculation engine validated against the IEC 61508-6:2010 B.3.2.4 reference example.</div>
+    <div class="hero-actions fade-up d4">
+      <a href="https://app.silverify.co.uk/auth?utm_source=website&utm_medium=cta&utm_campaign=hero" class="btn-primary">Try it free &mdash; no card required</a>
+      <a href="SILVerify_Example_Report.docx" class="btn-ghost" download>Download example report (DOCX) &rarr;</a>
+    </div>
+    <div class="hero-note fade-up d4">Real SIL 2 project &middot; no personal data</div>
+    <div class="hero-credibility fade-up d5">
+      <span class="cred-item">&#10003; Free to try &mdash; explore the full tool on a sample SIL 2 project</span>
+      <span class="cred-divider"></span>
+      <span class="cred-item">&#10003; Built by an Exida CFSE and T&Uuml;V-certified Functional Safety Engineer</span>
+      <span class="cred-divider"></span>
+      <span class="cred-item">&#10003; Real SIL verification report included</span>
+    </div>
+    <div class="metrics fade-up d5">
+      <div class="metric">
+        <div class="metric-val">3</div>
+        <div class="metric-label">Barriers assessed</div>
+      </div>
+      <div class="metric">
+        <div class="metric-val">4</div>
+        <div class="metric-label">Voting architectures</div>
+      </div>
+      <div class="metric">
+        <div class="metric-val" style="font-size:24px;line-height:1.4;">Frozen</div>
+        <div class="metric-label">Revision history</div>
+      </div>
+      <div class="metric">
+        <div class="metric-val" style="font-size:20px;line-height:1.4;">61508<br>+61511</div>
+        <div class="metric-label">Both standards</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PROBLEM -->
+<section style="padding-top:0; border-bottom: 1px solid var(--rule); position:relative; z-index:2;">
+  <div class="wrap" style="padding-top:56px; padding-bottom:64px;">
+    <div class="section-label">00 &mdash; The problem</div>
+    <h2>The spreadsheet isn&rsquo;t the calculation problem.
+      <em>It&rsquo;s everything that happens after the calculation.</em>
+    </h2>
+
+    <div class="problem-section">
+      <div class="problem-pains">
+        <div class="pain-item">
+          <div class="pain-icon">&#10005;</div>
+          <div>
+            <div class="pain-text">The calculation finishes. Then comes the documentation.</div>
+            <div class="pain-sub">Copy the results into Word. Rebuild the tables. Cross-reference every number. Reformat the template because a SIF changed. At &pound;900&ndash;&pound;1,200 per day, half a day on documentation is a workflow problem, not a billing problem.</div>
+          </div>
+        </div>
+        <div class="pain-item">
+          <div class="pain-icon">&#10005;</div>
+          <div>
+            <div class="pain-text">A modification arrives. The process starts again.</div>
+            <div class="pain-sub">A valve gets replaced. A proof test interval changes. You open the spreadsheet from eighteen months ago and spend two hours reconstructing what the inputs were, which version produced that number, and whether the report still reflects the current configuration.</div>
+          </div>
+        </div>
+        <div class="pain-item">
+          <div class="pain-icon">&#10005;</div>
+          <div>
+            <div class="pain-text">Someone else has to pick it up.</div>
+            <div class="pain-sub">The calculation made sense when you built it. Whether it still makes sense to an assessor, an auditor, or a colleague six months later is a different question. There&rsquo;s no frozen snapshot. No revision log. Just a spreadsheet.</div>
+          </div>
+        </div>
+      </div>
+      <div class="problem-turn">
+        <p><strong>The problem isn&rsquo;t your calculations. The problem is the workflow.</strong> Spreadsheets were never designed to produce auditable, client-ready verification documentation. SILVerify was.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIAL -->
+<section style="padding: 0; border-bottom: 1px solid var(--rule); position:relative; z-index:2;">
+  <div class="wrap" style="padding-top:56px; padding-bottom:64px;">
+    <div class="testimonial-block">
+      <div class="testimonial-tag">Used on live nuclear defence projects</div>
+      <div class="testimonial-quote-mark">&ldquo;</div>
+      <blockquote class="testimonial-text">My default has always been a spreadsheet. It works, but <strong>the gap between a finished calculation and a finished report is where the time goes &mdash; and where the risk lives</strong> if someone else has to pick it up later. I used SILVerify on a live project and the report it produced was better structured than what I&rsquo;d have written myself. Everything is traceable from input to conclusion. For anyone doing this work independently, it&rsquo;s hard to justify the spreadsheet route once you&rsquo;ve seen the alternative.</blockquote>
+      <div class="testimonial-attribution">
+        <div class="testimonial-name">James Hewitt</div>
+        <div class="testimonial-role">Exida CFSP &middot; Nuclear Defence</div>
+      </div>
+      <div class="testimonial-cta" style="margin-top:28px;">
+        <a href="https://app.silverify.co.uk/auth?utm_source=website&utm_medium=cta&utm_campaign=testimonial" class="btn-primary" style="font-size:12px; padding:12px 24px;">See it for yourself &mdash; try it free &rarr;</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how-it-works">
+  <div class="wrap">
+    <div class="section-label">01 &mdash; How it works</div>
+    <h2>Three required barriers, plus explicit data uncertainty assessment.
+      <em>Achieved SIL is the minimum of the three barrier results. The limiting barrier is flagged automatically.</em>
+    </h2>
+    <p class="section-lead">SILVerify assesses all three barriers required under IEC 61508 and IEC 61511, and documents data uncertainty per IEC 61511-1 &sect;11.9.4.</p>
+
+    <div class="barriers">
+      <div class="barrier">
+        <div class="barrier-top">
+          <span class="barrier-num">Barrier 01</span>
+          <span class="barrier-status">PFDavg</span>
+        </div>
+        <h3>Random hardware reliability</h3>
+        <p>PFDavg calculated from failure rates, diagnostic coverage, proof test coverage, proof test interval, and mission life. Uses the full IEC 61508-6 equation &mdash; including the residual failure term that most spreadsheet tools omit, and which dominates on long mission times with incomplete proof test coverage.</p>
+        <div class="barrier-formula">PFD_ch = &lambda;DU/2 &times; [PTC&times;T_I + (1&minus;PTC)&times;L_T]</div>
+      </div>
+      <div class="barrier">
+        <div class="barrier-top">
+          <span class="barrier-num">Barrier 02</span>
+          <span class="barrier-status">Route 1H</span>
+        </div>
+        <h3>Architectural constraint</h3>
+        <p>Safe Failure Fraction and Hardware Fault Tolerance assessed against the IEC 61508-2 Route 1H tables for Type A and Type B components. HFT is derived directly from the declared voting architecture &mdash; including the 2oo2 case where HFT&nbsp;=&nbsp;0 and SIL 2 via Route 1H is not achievable.</p>
+        <div class="barrier-formula">Route 1H &mdash; Tables 2 &amp; 3<br>HFT derived from voting architecture</div>
+      </div>
+      <div class="barrier">
+        <div class="barrier-top">
+          <span class="barrier-num">Barrier 03</span>
+          <span class="barrier-status">SC assessment</span>
+        </div>
+        <h3>Systematic capability</h3>
+        <p>Systematic Capability declared from IEC 61508 certification or prior use evidence. SC synthesis per IEC 61508 Clause 7.4.7 applied where channels have sufficient independence &mdash; raising effective SC of a redundant subsystem by one level, to a maximum of SC3.</p>
+        <div class="barrier-formula">SC synthesis: effective SC<br>= channel SC + 1 (max SC3)</div>
+      </div>
+
+      <!-- ADDITIONAL: §11.9.4 — spans full width -->
+      <div class="barrier-additional">
+        <div>
+          <div class="barrier-top" style="margin-bottom:12px;">
+            <span class="barrier-num">Additional &mdash; IEC 61511-1 &sect;11.9.4</span>
+            <span class="barrier-status" style="color:var(--warn);border-color:rgba(245,166,35,0.3);">Data uncertainty</span>
+          </div>
+          <h3 style="font-family:var(--cond);font-size:18px;font-weight:700;text-transform:uppercase;color:var(--t1);margin-bottom:10px;">Data uncertainty assessment</h3>
+          <p style="font-size:14px;color:var(--t2);line-height:1.65;font-weight:300;">Reliability data uncertainties assessed and documented automatically. The best estimate PFDavg is presented alongside an uncertainty band &mdash; lower and upper bounds calculated using a configurable uncertainty factor (default &times;3, per IEC 61511-1 &sect;11.9.4 guidance). A verdict is returned for each case: PASS with margin, PASS &mdash; marginal (warning only), or FAIL. The warning does not change the PASS/FAIL determination &mdash; it documents the engineering judgement that the design margin may be insufficient to absorb expected data variation.</p>
+        </div>
+        <div>
+          <div class="only-claim">&#8594; The only SIL verification tool that documents data uncertainty per IEC 61511-1 &sect;11.9.4 &mdash; automatically. No other tool currently implements this.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="why-switch">
+      <div class="why-label">Three reasons the spreadsheet workflow doesn&rsquo;t survive a real SIS project</div>
+      <div class="why-grid">
+        <div class="why-item">
+          <div class="why-icon">&#8594;</div>
+          <div>
+            <div class="why-title">Speed</div>
+            <div class="why-desc">Calculation and report in one session. No second pass, no copy-paste into Word, no rebuilding tables because a SIF changed. No hidden formulas &mdash; every intermediate value is shown and copied into the report automatically.</div>
+          </div>
+        </div>
+        <div class="why-item">
+          <div class="why-icon">&#8594;</div>
+          <div>
+            <div class="why-title">Compounding value</div>
+            <div class="why-desc">Your device library and failure rate register grow with every project. The second project takes a fraction of the time of the first. By the fifth project, most of the setup work is already done. That value lives in SILVerify &mdash; not a folder of spreadsheets on your desktop.</div>
+          </div>
+        </div>
+        <div class="why-item">
+          <div class="why-icon">&#8594;</div>
+          <div>
+            <div class="why-title">Modification management</div>
+            <div class="why-desc">Something changes on site. Update the input, generate a new revision. The previous report is frozen &mdash; a locked snapshot of the exact inputs that produced that result. Full audit trail created automatically. When a client asks which version of the calculation the report reflects, the answer is unambiguous.</div>
+          </div>
+        </div>
+        <div class="why-item">
+          <div class="why-icon">&#8594;</div>
+          <div>
+            <div class="why-title">No expensive annual licence</div>
+            <div class="why-desc">Traditional SIL software means a procurement process, a purchase order, and a four-figure annual commitment regardless of how many projects you actually run. SILVerify is &pound;59/month flat &mdash; unlimited verifications, cancel anytime.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="section-label" style="margin-top:0;">02 &mdash; Results</div>
+    <h2>Every intermediate value shown.
+      <em>Full traceability from input data to final SIL determination.</em>
+    </h2>
+    <p class="section-lead">Per-channel PFDavg, subsystem totals, relative contribution, three-barrier summary, uncertainty assessment, and achieved SIL &mdash; with the limiting subsystem flagged automatically.</p>
+
+    <div class="results-panel">
+      <div class="panel-bar">
+        <span class="panel-title">SIF-004 &middot; High-Reactor-Pressure Trip &middot; Target SIL 2 &middot; Rev 03</span>
+        <span class="panel-badge badge-pass">SIL 2 PASS</span>
+      </div>
+      <table class="rt">
+        <thead>
+          <tr>
+            <th>Subsystem</th><th>Architecture</th><th>PFDavg (channel)</th><th>Subsystem PFDavg</th><th>Contribution</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="hi-val">Sensors (PT-001A/B)</td>
+            <td>1oo2</td>
+            <td>3.68 &times; 10<sup>-4</sup></td>
+            <td class="hi-val">1.77 &times; 10<sup>-4</sup></td>
+            <td><div class="contrib-bar"><div class="bar-track"><div class="bar-fill low" style="width:3%"></div></div><span>3%</span></div></td>
+          </tr>
+          <tr>
+            <td class="hi-val">Logic Solver (LS-001)</td>
+            <td>1oo1</td>
+            <td>6.17 &times; 10<sup>-4</sup></td>
+            <td class="hi-val">6.17 &times; 10<sup>-4</sup></td>
+            <td><div class="contrib-bar"><div class="bar-track"><div class="bar-fill low" style="width:12%"></div></div><span>12%</span></div></td>
+          </tr>
+          <tr>
+            <td class="hi-val">Final Elements (XV-001)</td>
+            <td>1oo1</td>
+            <td>4.38 &times; 10<sup>-3</sup></td>
+            <td class="warn-val">4.38 &times; 10<sup>-3</sup></td>
+            <td><div class="contrib-bar"><div class="bar-track"><div class="bar-fill high" style="width:85%"></div></div><span class="warn-val">85% &#9888;</span></div></td>
+          </tr>
+          <tr class="result-row">
+            <td>Total SIF PFDavg</td><td>&mdash;</td><td>&mdash;</td>
+            <td class="pass-val">5.17 &times; 10<sup>-3</sup></td>
+            <td class="pass-val">SIL 2 &nbsp;&#10003;</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:12px; color:var(--t3); font-family:var(--mono); letter-spacing:0.03em; margin-bottom:24px;">&#9888; Final elements contribute 85% of total PFDavg &mdash; limiting subsystem. Design changes should target final element architecture before any other subsystem.</p>
+
+    <!-- Uncertainty panel -->
+    <div class="uncertainty-panel">
+      <div class="panel-bar">
+        <span class="panel-title">Uncertainty assessment &mdash; IEC 61511-1 &sect;11.9.4 &middot; Uncertainty factor: &times;3 (configurable)</span>
+        <span class="panel-badge badge-warn">PASS &mdash; MARGINAL</span>
+      </div>
+      <table class="rt">
+        <tbody>
+          <tr>
+            <td style="color:var(--t3)">SIL 2 acceptance range</td>
+            <td class="pass-val">1.00 &times; 10<sup>-3</sup> &mdash; 1.00 &times; 10<sup>-2</sup></td>
+          </tr>
+          <tr>
+            <td style="color:var(--t3)">Lower bound (&divide;3)</td>
+            <td class="hi-val">1.72 &times; 10<sup>-3</sup></td>
+          </tr>
+          <tr>
+            <td style="color:var(--t3)">Best estimate PFDavg</td>
+            <td class="hi-val">5.17 &times; 10<sup>-3</sup></td>
+          </tr>
+          <tr>
+            <td style="color:var(--t3)">Upper bound (&times;3)</td>
+            <td class="warn-val">1.55 &times; 10<sup>-2</sup> &#9888; exceeds SIL 2 range</td>
+          </tr>
+          <tr style="background:rgba(245,166,35,0.06);">
+            <td style="color:var(--warn);font-weight:600;">Verdict</td>
+            <td style="color:var(--warn);font-weight:600;">PASS &mdash; marginal (warning only). Recommend targeting PFDavg &le; 3.33 &times; 10<sup>-3</sup> for full margin.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ARCHITECTURES -->
+    <div class="section-label" style="margin-top:52px;">03 &mdash; Architectures</div>
+    <h2>All four voting architectures.
+      <em>Including 2oo2 &mdash; where the implications for Route 1H are handled correctly and documented in every report.</em>
+    </h2>
+    <p class="section-lead">HFT is derived automatically from the declared architecture. The 2oo2 case &mdash; where HFT = 0 regardless of channel count &mdash; is assessed correctly and the architectural constraint consequence is stated explicitly in the report.</p>
+
+    <div class="arch-grid">
+      <div class="arch">
+        <div class="arch-header">
+          <div class="arch-name">1oo1</div>
+          <span class="arch-hft hft0">HFT = 0</span>
+        </div>
+        <h4>Single channel</h4>
+        <p>Baseline single-channel architecture. One failure causes safety function loss. Standard for logic solvers and single-channel final elements where the reliability target is met without redundancy.</p>
+      </div>
+      <div class="arch">
+        <div class="arch-header">
+          <div class="arch-name">1oo2</div>
+          <span class="arch-hft hft1">HFT = 1</span>
+        </div>
+        <h4>Most common sensor architecture</h4>
+        <p>Two channels, either activates the function. One failure tolerated &mdash; HFT = 1. Improves both PFDavg and the architectural constraint position. Common cause failure (beta factor) required.</p>
+      </div>
+      <div class="arch">
+        <div class="arch-header">
+          <div class="arch-name">2oo2</div>
+          <span class="arch-hft hft0">HFT = 0</span>
+        </div>
+        <h4>Availability improvement &mdash; not safety improvement</h4>
+        <p>Both channels must function. HFT = 0 &mdash; identical to 1oo1. Reduces spurious trip rate but does not improve the safety architectural position. Selecting 2oo2 to improve a SIL claim via Route 1H is a common and costly design error.</p>
+        <div class="arch-note">&#9888; Common source of error in manual calculations &mdash; documented in every SILVerify report</div>
+      </div>
+      <div class="arch">
+        <div class="arch-header">
+          <div class="arch-name">2oo3</div>
+          <span class="arch-hft hft1">HFT = 1</span>
+        </div>
+        <h4>High availability and safety</h4>
+        <p>Three channels, 2-of-3 voting. One failure tolerated &mdash; HFT = 1. Higher PFDavg than 1oo2 for identical channel failure rates. Beta factor required.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- REPORT -->
+<section id="report">
+  <div class="wrap">
+    <div class="section-label">04 &mdash; Report output</div>
+    <h2>A complete deliverable.
+      <em>Not a calculation printout &mdash; an FSA-ready verification document.</em>
+    </h2>
+    <p class="section-lead">The report reads from a frozen input snapshot &mdash; it never re-queries live data. The document always represents the exact calculation run it was generated from. All previous reports are stored permanently and never overwritten.</p>
+
+    <div class="report-mockup">
+      <div class="report-toolbar">
+        <div class="report-dots">
+          <div class="rdot rdot-r"></div>
+          <div class="rdot rdot-y"></div>
+          <div class="rdot rdot-g"></div>
+        </div>
+        <span class="report-filename">SIF-004_SIL-Verification-Report_Rev03.docx</span>
+      </div>
+      <div class="report-content">
+        <ul class="toc-list">
+          <li class="toc-item"><span class="toc-num">01</span><span class="toc-text">Cover &mdash; project, engineer, revision, date. Your name on the document.</span></li>
+          <li class="toc-item"><span class="toc-num">02</span><span class="toc-text">Executive summary &mdash; every SIF, target vs achieved SIL at a glance.</span></li>
+          <li class="toc-item"><span class="toc-num">03</span><span class="toc-text">SIF descriptions &mdash; tag, hazard, demand rate, target SIL.</span></li>
+          <li class="toc-item"><span class="toc-num">04</span><span class="toc-text">Architecture &mdash; subsystem layout and channel count.</span></li>
+          <li class="toc-item"><span class="toc-num">05</span><span class="toc-text">Failure data &mdash; every channel input with source traceability.</span></li>
+          <li class="toc-item"><span class="toc-num highlight">05b</span><span class="toc-text"><strong>Reliability data justification</strong> &mdash; data source and site-specific justification per device (IEC 61511-1 &sect;11.9.3)</span></li>
+          <li class="toc-item"><span class="toc-num">06</span><span class="toc-text">UPM / CCF &mdash; structured beta derivation and justification.</span></li>
+          <li class="toc-item"><span class="toc-num">07</span><span class="toc-text">Calculations &mdash; full workings with every intermediate value shown. No formula bar. No hidden cells.</span></li>
+          <li class="toc-item"><span class="toc-num highlight">07b</span><span class="toc-text"><strong>Uncertainty assessment</strong> &mdash; bounds, verdict, and engineering recommendation (IEC 61511-1 &sect;11.9.4)</span></li>
+          <li class="toc-item"><span class="toc-num">08</span><span class="toc-text">Results &mdash; three-barrier summary. Limiting subsystem flagged automatically.</span></li>
+          <li class="toc-item"><span class="toc-num">09</span><span class="toc-text">Assumptions &mdash; documented assumptions and limitations.</span></li>
+          <li class="toc-item"><span class="toc-num">10</span><span class="toc-text">Scope statement &mdash; what was verified and what was not.</span></li>
+          <li class="toc-item"><span class="toc-num">11</span><span class="toc-text">Architectural constraint &mdash; Route 1H assessment per subsystem.</span></li>
+          <li class="toc-item"><span class="toc-num">12</span><span class="toc-text">Systematic capability &mdash; SC declaration and synthesis basis.</span></li>
+          <li class="toc-item"><span class="toc-num">13</span><span class="toc-text">Conclusion &mdash; three-barrier summary, unambiguous PASS / FAIL.</span></li>
+        </ul>
+        <div>
+          <div class="report-snapshot">
+            <div class="snapshot-title">Calculation snapshot &mdash; frozen at Rev 03</div>
+            <div class="snapshot-row"><span class="snap-key">Barrier 1 &mdash; PFDavg</span><span class="snap-val pass-val">5.17&times;10<sup>-3</sup> &middot; SIL 2</span></div>
+            <div class="snapshot-row"><span class="snap-key">Barrier 2 &mdash; Arch constraint</span><span class="snap-val pass-val">SIL 2 via Route 1H</span></div>
+            <div class="snapshot-row"><span class="snap-key">Barrier 3 &mdash; Systematic cap</span><span class="snap-val pass-val">SC2 (all subsystems)</span></div>
+            <div class="snapshot-row"><span class="snap-key">Uncertainty verdict</span><span class="snap-val warn-val">PASS &mdash; marginal &#9888;</span></div>
+            <div class="snapshot-row"><span class="snap-key">Achieved SIL</span><span class="snap-val pass-val">SIL 2 &middot; PASS</span></div>
+            <div class="snapshot-row"><span class="snap-key">Generated</span><span class="snap-val">2026-04-08 &middot; 09:41 UTC</span></div>
+            <div class="snapshot-row"><span class="snap-key">Engineer</span><span class="snap-val">R. Kelly CFSE</span></div>
+            <div class="snapshot-row"><span class="snap-key">Snapshot</span><span class="snap-val pass-val">Frozen at Rev 03</span></div>
+          </div>
+        </div>
+        <div class="report-note">The report reads from a frozen input snapshot created at calculation time. It never re-queries live data &mdash; the document always represents the exact calculation run it was generated from, even if inputs have since been revised. Every revision is stored with its sequence number, date, and full parameter set.</div>
+      </div>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:20px; margin-top:0; flex-wrap:wrap;">
+      <a href="SILVerify_Example_Report.docx" class="btn-primary" download>Download example report (DOCX) &rarr;</a>
+      <span style="font-family:var(--mono); font-size:11px; color:var(--t3); letter-spacing:0.06em;">Real report &middot; Reactor high-pressure trip &middot; SIL 2 &middot; PASS</span>
+    </div>
+  </div>
+</section>
+
+<!-- SCOPE -->
+<section>
+  <div class="wrap">
+    <div class="section-label">05 &mdash; Scope</div>
+    <h2>Designed to do one thing correctly.
+      <em>Random hardware reliability for low demand SIS. Documented in every report.</em>
+    </h2>
+    <p class="section-lead">SILVerify accelerates the work of a qualified functional safety engineer. It does not replace engineering judgement. Scope boundaries are explicit in every report it generates.</p>
+
+    <div class="scope-cols">
+      <div class="scope-col in">
+        <div class="scope-head in">This is what SILVerify claims to do</div>
+        <div class="scope-items">
+          <div class="scope-item">IEC 61508 and IEC 61511 &mdash; both standards supported</div>
+          <div class="scope-item">Low demand mode &mdash; standard assumption for SIS</div>
+          <div class="scope-item">SIL 1, 2, and 3 &mdash; all three levels fully supported</div>
+          <div class="scope-item">Random hardware reliability &mdash; full PFDavg including residual term</div>
+          <div class="scope-item">Architectural constraint &mdash; Route 1H for Type A and Type B</div>
+          <div class="scope-item">Systematic capability &mdash; SC declaration and Clause 7.4.7 synthesis</div>
+          <div class="scope-item">Common cause failure &mdash; UPM assessment and manual beta entry</div>
+          <div class="scope-item">Data uncertainty assessment &mdash; IEC 61511-1 &sect;11.9.4</div>
+          <div class="scope-item">Reliability data justification per device &mdash; &sect;11.9.3</div>
+          <div class="scope-item">1oo1, 1oo2, 2oo2, 2oo3 voting architectures</div>
+          <div class="scope-item">Unlimited SIFs and projects per account</div>
+          <div class="scope-item">FSA-ready DOCX report with frozen snapshots and revision history</div>
+        </div>
+      </div>
+      <div class="scope-col out">
+        <div class="scope-head out">This is what you must cover elsewhere</div>
+        <div class="scope-items">
+          <div class="scope-item">SIL 4 &mdash; outside scope of this tool</div>
+          <div class="scope-item">High demand and continuous mode &mdash; not supported</div>
+          <div class="scope-item">Systematic failure avoidance &mdash; separate assessment required</div>
+          <div class="scope-item">Software safety integrity &mdash; IEC 61508 Part 3 not covered</div>
+          <div class="scope-item">Functional safety management &mdash; FSM process is separate</div>
+          <div class="scope-item">Process hazard analysis &mdash; HAZOP / LOPA outside scope</div>
+          <div class="scope-item">Proof test procedure adequacy &mdash; engineer confirmation required</div>
+          <div class="scope-item">Low demand assumption verification &mdash; engineer responsibility</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WHO IS IT FOR -->
+<section>
+  <div class="wrap">
+    <div class="section-label">06 &mdash; Users</div>
+    <h2>Built for engineers doing the work.
+      <em>By an engineer who does too.</em>
+    </h2>
+    <div class="profiles">
+      <div class="profile-card">
+        <div class="profile-id">01 &middot; Independent consultant</div>
+        <h3>FS consultants</h3>
+        <p>Delivering SIL verification on client projects across multiple sites and standards. SILVerify turns 2&ndash;4 days of calculation and writeup into a single session. The report goes to the client &mdash; complete, documented, signed by you.</p>
+      </div>
+      <div class="profile-card">
+        <div class="profile-id">02 &middot; In-house engineer</div>
+        <h3>Plant FS engineers</h3>
+        <p>Managing a SIS on an operating facility. SILVerify provides a documented history of every calculation &mdash; essential when a modification is proposed, when regulatory inspection is imminent, or when a previous calculation needs to be defended.</p>
+      </div>
+      <div class="profile-card">
+        <div class="profile-id">03 &middot; Consultancy practice</div>
+        <h3>Engineering teams</h3>
+        <p>Multiple engineers across multiple projects requiring consistent methodology and report format. Team licensing provides a shared tool and shared output format &mdash; ending the problem of reconciling three different engineers&rsquo; spreadsheet approaches on the same project.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BUILT BY -->
+<section>
+  <div class="wrap">
+    <div class="section-label">07 &mdash; Built by</div>
+    <h2>A practising engineer.
+      <em>Who needed this tool and built it when it didn&rsquo;t exist.</em>
+    </h2>
+    <div class="founder-block">
+      <div>
+        <p class="founder-quote">&ldquo;I built SILVerify because I was sick of the workflow. The calculation was the easy part. Then came checking it again. Then the Word document. Then reformatting every table because a SIF changed. On a project with ten SIFs that process consumed days. SILVerify exists because that time belongs on the engineering, not the paperwork. The defensibility is the point &mdash; but getting your time back is a very close second.&rdquo;</p>
+        <div class="founder-creds">
+          <div class="cred-line">Richard Kelly &mdash; Functional Safety Consultant</div>
+          <div class="cred-line" style="color:var(--sig);">Currently working on live nuclear projects</div>
+          <div class="cred-line">Exida CFSE and T&Uuml;V-certified Functional Safety Engineer</div>
+          <div class="cred-line">MEng Control and Instrumentation for Nuclear Engineering</div>
+          <div class="cred-line">20 years delivering functional safety on nuclear projects</div>
+          <div class="cred-line">Founder, Functional Safety Playbook</div>
+        </div>
+      </div>
+      <div class="founder-badges">
+        <div class="f-badge g">Exida CFSE</div>
+        <div class="f-badge g">T&Uuml;V Certified</div>
+        <div class="f-badge a">Nuclear &middot; 20 yrs</div>
+        <div class="f-badge a">Currently active</div>
+        <div class="f-badge g" style="font-size:10px;">IEC 61508-6:2010<br>B.3.2.4 validated</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section id="pricing">
+  <div class="wrap">
+    <div class="section-label">08 &mdash; Pricing</div>
+    <h2>One price. Unlimited verifications.
+      <em>Stop paying for a licence you use three times a year.</em>
+    </h2>
+
+    <div class="monthly-compare">
+      <div class="mc-panel mc-silverify">
+        <div class="mc-tag">SILVerify Individual</div>
+        <div class="mc-price">&pound;59<span class="mc-period">/mo</span></div>
+        <div class="mc-note">Or &pound;590/year &mdash; less than &pound;1.65 per day against a &pound;900+ billing rate.</div>
+        <ul class="mc-bullets">
+          <li>Unlimited SIL verification reports</li>
+          <li>Unlimited projects and SIFs</li>
+          <li>Full device library</li>
+          <li>Frozen revision history</li>
+          <li>Cancel anytime &mdash; start today</li>
+        </ul>
+      </div>
+      <div class="mc-vs-badge">
+        <div class="mc-vs-text">vs</div>
+      </div>
+      <div class="mc-panel mc-traditional">
+        <div class="mc-tag">Traditional SIL licence</div>
+        <div class="mc-price">&pound;250+<span class="mc-period">/mo</span></div>
+        <div class="mc-note">From &pound;3,000/year &mdash; whether you use it or not.</div>
+        <ul class="mc-bullets">
+          <li>Annual commitment regardless of usage</li>
+          <li>Procurement process + purchase order</li>
+          <li>Fixed cost in quiet months</li>
+          <li>Often a separate report workflow</li>
+          <li>Weeks to procurement approval</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="pricing-wrap">
+      <div class="price-card featured">
+        <div class="price-featured-label">Individual</div>
+        <div class="price-tier">Unlimited reports &middot; cancel anytime</div>
+        <div class="price-main"><span class="price-currency">&pound;</span><span class="price-num">59</span></div>
+        <div class="price-period">/month</div>
+        <div class="price-annual">Annual plan &mdash; &pound;590/year (save two months)</div>
+        <div class="price-day">Less than &pound;1.65/day against a &pound;900+ billing rate</div>
+        <ul class="price-features">
+          <li>Full three-barrier calculation engine</li>
+          <li>Unlimited projects and SIFs</li>
+          <li>All four voting architectures</li>
+          <li>UPM common cause failure assessment</li>
+          <li>SC synthesis per IEC 61508 Clause 7.4.7</li>
+          <li class="highlight">Data uncertainty assessment &mdash; &sect;11.9.4</li>
+          <li class="highlight">Reliability data justification per device &mdash; &sect;11.9.3</li>
+          <li>Device library &mdash; controlled failure rate register</li>
+          <li>Complete verification and report history</li>
+          <li>IEC 61508 and IEC 61511</li>
+          <li>Sample project included</li>
+          <li>FSA-ready DOCX report &mdash; frozen snapshots and revision history</li>
+        </ul>
+        <a href="https://app.silverify.co.uk/auth?utm_source=website&utm_medium=cta&utm_campaign=pricing" class="price-btn primary">Try it free &mdash; 7 days</a>
+      </div>
+      <div class="price-card">
+        <div class="price-featured-label" style="background:#3730a3;">Team</div>
+        <div class="price-tier">3&ndash;5 users &middot; unlimited reports</div>
+        <div class="price-main"><span class="price-currency">&pound;</span><span class="price-num">599</span></div>
+        <div class="price-period">/month &middot; single invoice</div>
+        <div class="price-annual">Or &pound;5,990/year &mdash; two months free</div>
+        <div class="price-day">&nbsp;</div>
+        <ul class="price-features">
+          <li>Everything in Individual</li>
+          <li>3&ndash;5 named users on one account</li>
+          <li>Unlimited report generation included</li>
+          <li>Shared project library across the team</li>
+          <li>Consistent report format across all engineers</li>
+          <li>Admin user management</li>
+          <li>Single monthly or annual invoice</li>
+          <li>Priority support</li>
+        </ul>
+        <a href="mailto:richard@silverify.co.uk" class="price-btn outline">Get team access &mdash; email Richard directly</a>
+      </div>
+    </div>
+
+    <div class="guarantee-block">
+      <div class="guarantee-icon">&#9745;</div>
+      <div>
+        <div class="guarantee-title">Calculation accuracy guarantee</div>
+        <div class="guarantee-body">If SILVerify produces a result that does not match your manual calculation within normal rounding tolerance, contact us with your inputs. We will investigate, explain the discrepancy, and refund that month&rsquo;s subscription if the error is on our side. A verification tool you cannot trust is a liability.</div>
+      </div>
+    </div>
+
+    <div class="urgency-note">SILVerify is in early access. Engineers who subscribe now lock in the current rate permanently.</div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq">
+  <div class="wrap">
+    <div class="section-label">09 &mdash; FAQ</div>
+    <h2>Common questions.</h2>
+
+    <div class="faq-list">
+      <div class="faq">
+        <div class="faq-q">Does SILVerify replace the need for a qualified functional safety engineer?</div>
+        <div class="faq-a">No. SILVerify handles the calculation and the documentation. The engineering judgement &mdash; what the inputs should be, whether the scope is correct, what the result means for your installation &mdash; remains yours. The engineer of record is you.</div>
+      </div>
+      <div class="faq">
+        <div class="faq-q">How do I know the calculations are correct?</div>
+        <div class="faq-a">SILVerify applies the full IEC 61508-6 equations, including the residual failure term that many simplified tools omit. The engine has been validated against the IEC 61508-6:2010 Section B.3.2.4 reference example, with all three subsystem results matching to within rounding. Every intermediate value is shown in the results screen and carried through to the report.</div>
+      </div>
+      <div class="faq">
+        <div class="faq-q">Does SILVerify document data uncertainty and reliability data justification?</div>
+        <div class="faq-a">Yes. Per IEC 61511-1 &sect;11.9.3, each device entry includes a data source and site-specific justification field &mdash; documented in a dedicated report section. Per &sect;11.9.4, the uncertainty band is calculated automatically and a PASS / marginal / FAIL verdict returned. Both sections appear explicitly in every report.</div>
+      </div>
+      <div class="faq">
+        <div class="faq-q">What happens to my device library and project history between projects?</div>
+        <div class="faq-a">They stay exactly where you left them. Your failure rate register, device library, and project archive are always there when the next project lands. The second verification takes a fraction of the time of the first.</div>
+      </div>
+      <div class="faq">
+        <div class="faq-q">Can I reanalyse a SIF when something changes on site?</div>
+        <div class="faq-a">Yes. Update the input and generate a new revision. The previous report is frozen &mdash; a locked snapshot of the exact inputs that produced that result. Full audit trail created automatically. When a client asks which version of the calculation the report reflects, the answer is unambiguous.</div>
+      </div>
+      <div class="faq">
+        <div class="faq-q">Can I submit the report directly to clients or regulators?</div>
+        <div class="faq-a">Yes &mdash; it is designed as a professional deliverable structured for independent functional safety assessment. It includes a cover page, scope statement, assumptions register, full calculation workings, uncertainty assessment, and a clear PASS/FAIL conclusion. Your name is on it.</div>
+      </div>
+      <div class="faq">
+        <div class="faq-q">What happens to my verification history if I cancel?</div>
+        <div class="faq-a">Your history is stored and remains on the platform. On cancellation it becomes locked &mdash; resubscribing restores full access immediately. A 30-day export window is available after cancellation. Nothing is deleted.</div>
+      </div>
+      <div class="faq">
+        <div class="faq-q">Does it handle both IEC 61508 and IEC 61511?</div>
+        <div class="faq-a">Yes. You select the applicable standard when creating a project. IEC 61511 adds specific requirements around systematic capability per Clause 11.9 and data uncertainty per &sect;11.9.4 &mdash; both flagged and documented explicitly in the report.</div>
+      </div>
+      <div class="faq">
+        <div class="faq-q">Can I try the tool before subscribing?</div>
+        <div class="faq-a">Yes. A sample project is included so you can explore the full calculation engine &mdash; all four architectures, all three barriers, uncertainty assessment, the full results breakdown. No time limit. To run a verification on your own project data and generate a report, choose a plan.</div>
+      </div>
+      <div class="faq">
+        <div class="faq-q">I have a question about a specific calculation or edge case.</div>
+        <div class="faq-a">Email <a href="mailto:richard@silverify.co.uk">richard@silverify.co.uk</a> directly. He is the engineer who built the tool and currently uses it on live nuclear projects. Same day response during working hours.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<div class="cta-strip">
+  <div class="wrap">
+    <h2>Stop rebuilding your SIL verification<br>from scratch every time.</h2>
+    <p>Your device library keeps building value. Your project history is preserved. Your next modification takes minutes, not days.</p>
+    <div class="cta-sub">See exactly what your clients would receive on a real SIL 2 example.</div>
+    <div class="cta-actions">
+      <a href="https://app.silverify.co.uk/auth?utm_source=website&utm_medium=cta&utm_campaign=footer" class="btn-primary">Try it free &mdash; no card required</a>
+      <a href="SILVerify_Example_Report.docx" class="btn-ghost" download>Download example report &rarr;</a>
+    </div>
+    <div class="cta-note">Real SIL 2 project &middot; no personal data</div>
+    <div class="cta-bullets">
+      <div class="cta-bullet">Free to try</div>
+      <div class="cta-bullet">Built by an Exida CFSE and T&Uuml;V-certified Functional Safety Engineer</div>
+      <div class="cta-bullet">Validated against IEC 61508-6:2010 B.3.2.4 reference example</div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div>SILVerify &middot; IEC 61508 / IEC 61511 SIL Verification &middot; <a href="mailto:richard@silverify.co.uk">richard@silverify.co.uk</a> &middot; <a href="https://silverify.co.uk">silverify.co.uk</a></div>
+</footer>
+
+</body>
+</html>
